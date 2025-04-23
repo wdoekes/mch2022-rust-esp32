@@ -1,0 +1,15 @@
+.PHONY: all debug release flash
+
+all: debug release
+
+release:
+	cargo build --release
+
+debug:
+	cargo build
+
+flash:
+	# 16MB is important. So might partitions.csv be!
+	# Also, we need manual esp_println or we see nothing.
+	espflash flash --chip=esp32 --port=/dev/ttyACM0 -M --partition-table=partitions.csv --flash-size=16mb --target-app-partition=ota_0 ./target/xtensa-esp32-none-elf/release/helloworld
+

@@ -1,25 +1,32 @@
 [package]
 edition = "2021"
-name    = "helloworld"
+# Rename to hellomch for now
+name    = "hellomch"
 version = "0.1.0"
 
 [[bin]]
-name = "helloworld"
+name = "hellomch"
 path = "./src/bin/main.rs"
 
+[features]
+version-from-env = []
+
 [dependencies]
+hellomch-mchdisplay = { path = "lib/mchdisplay" }
+
 critical-section = "1.2.0"
-display-interface = "0.5.0"
-display-interface-spi = "0.5.0"
+#display-interface = "0.5.0"
+#display-interface-spi = "0.5.0"
+git-version = "0.3"
 embassy-net = { version = "0.6.0", features = [
   "dhcpv4",
   "medium-ethernet",
   "tcp",
   "udp",
 ] }
-embedded-graphics = "0.8.1"
+#embedded-graphics = "0.8.1"
 embedded-hal-bus = "0.3.0"
-embedded-io = "0.6.1"
+#embedded-io = "0.6.1"
 esp-alloc = "0.7.0"
 esp-hal = { version = "1.0.0-beta.0", features = ["esp32", "unstable"] }
 esp-println = { version = "0.13", features = ["esp32", "log"] }
@@ -30,8 +37,8 @@ esp-wifi = { version = "0.13.0", features = [
   "log",
   "wifi",
 ] }
-heapless = { version = "0.8.0", default-features = false }
-ili9341 = "0.6.0"
+#heapless = { version = "0.8.0", default-features = false }
+#ili9341 = "0.6.0"
 smoltcp = { version = "0.12.0", default-features = false, features = [
   "medium-ethernet",
   "multicast",

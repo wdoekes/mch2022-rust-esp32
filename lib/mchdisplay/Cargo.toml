@@ -1,0 +1,56 @@
+[package]
+name = "hellomch-mchdisplay"
+edition = "2021"
+version = "0.1.0"
+
+## https://github.com/johnthagen/min-sized-rust
+## cargo build            # (7M)
+## cargo build --release  # (4M, or 300K after strip=true)
+#[profile.release]
+#strip = true        # Automatically strip symbols from the binary
+##opt-level = "z"    # Optimize for size?
+##DISABLED_FOR_FASTER_BUILD#lto = true           # Enable Link Time Optimization (LTO)
+##DISABLED_FOR_FASTER_BUILD#codegen-units = 1    # Serial build. Slow, but better opt
+##panic = "abort"    # No debug stacktrace awesomeness?
+#
+#[features]
+#benchmark = []  # "["dep:foo_bar_pkg"]
+#
+#[[bench]]
+#name = "log_matcher"
+#harness = false
+#
+#[dev-dependencies]
+#criterion = "0.5"
+#
+#[dependencies]
+#natsomatch-json = { path = "../json" }
+
+#[[bin]]
+#name = "helloworld"
+#path = "./src/bin/main.rs"
+
+[dependencies]
+display-interface = "0.5.0"
+display-interface-spi = "0.5.0"
+embedded-graphics = "0.8.1"
+embedded-hal-bus = "0.3.0"
+#esp-alloc = "0.7.0"
+esp-hal = { version = "1.0.0-beta.0", features = ["esp32", "unstable"] }
+esp-println = { version = "0.13", features = ["esp32", "log"] }
+#heapless = { version = "0.8.0", default-features = false }
+ili9341 = "0.6.0"
+
+[profile.dev]
+# Rust debug is too slow.
+# For debug builds always builds with some optimization
+opt-level = "s"
+
+[profile.release]
+codegen-units    = 1     # LLVM can perform better optimizations using a single thread
+debug            = 2
+debug-assertions = false
+incremental      = false
+lto              = 'fat'
+opt-level        = 's'
+overflow-checks  = false

@@ -7,61 +7,32 @@ version = "0.1.0"
 [[bin]]
 name = "hellomch"
 path = "./src/bin/main.rs"
+harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
+
+[profile.release]
+#codegen-units    = 1     # LLVM can perform better optimizations using a single thread
+#debug            = 2
+#debug-assertions = false
+#incremental      = false
+#lto              = 'fat'
+opt-level = "s"
+#overflow-checks  = false
+
+[profile.dev]
+debug = true    # Symbols are nice and they don't increase the size on Flash
+opt-level = "z"
 
 [features]
+default = []
+experimental = ["esp-idf-svc/experimental"]
 version-from-env = []
 
 [dependencies]
 hellomch-mchdisplay = { path = "lib/mchdisplay" }
 
-critical-section = "1.2.0"
-#display-interface = "0.5.0"
-#display-interface-spi = "0.5.0"
+log = "0.4"
+esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
 git-version = "0.3"
-embassy-net = { version = "0.6.0", features = [
-  "dhcpv4",
-  "medium-ethernet",
-  "tcp",
-  "udp",
-] }
-#embedded-graphics = "0.8.1"
-embedded-hal-bus = "0.3.0"
-#embedded-io = "0.6.1"
-esp-alloc = "0.7.0"
-esp-hal = { version = "1.0.0-beta.0", features = ["esp32", "unstable"] }
-esp-println = { version = "0.13", features = ["esp32", "log"] }
-esp-wifi = { version = "0.13.0", features = [
-  "builtin-scheduler",
-  "esp-alloc",
-  "esp32",
-  "log",
-  "wifi",
-] }
-#heapless = { version = "0.8.0", default-features = false }
-#ili9341 = "0.6.0"
-smoltcp = { version = "0.12.0", default-features = false, features = [
-  "medium-ethernet",
-  "multicast",
-  "proto-dhcpv4",
-  "proto-dns",
-  "proto-ipv4",
-  "socket-dns",
-  "socket-icmp",
-  "socket-raw",
-  "socket-tcp",
-  "socket-udp",
-] }
 
-[profile.dev]
-# Rust debug is too slow.
-# For debug builds always builds with some optimization
-opt-level = "s"
-
-[profile.release]
-codegen-units    = 1     # LLVM can perform better optimizations using a single thread
-debug            = 2
-debug-assertions = false
-incremental      = false
-lto              = 'fat'
-opt-level        = 's'
-overflow-checks  = false
+[build-dependencies]
+embuild = "0.33"

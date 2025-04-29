@@ -28,6 +28,23 @@ Prerequisites
 
   You don't need to do this, since you already have this project checked out.
 
+- Later, it was converted to ``esp-idf-svc`` by generating a new template:
+
+  ``cargo generate esp-rs/esp-idf-template cargo``
+
+  The relevant changes were implemented.
+
+  Now we also need ``ldproxy``:
+
+  ``cargo install ldproxy``
+
+  Now the *debug* build builds to about 500K, instead of just 50K. So
+  building is a bit slower, and flashing is ten times as slow.
+
+  And drawing to the screen is also *significantly* slower. We sleep
+  1000ms, but the logging shows 1250ms. So 250ms for screen redraw,
+  instead of about 64ms for the esp-hal version.
+
 Now you can run ``make`` to build:
 
 .. code-block:: console
@@ -117,7 +134,7 @@ Flash this using:
 
 - Hold SELECT while powering on. The *badge* will start in *RPi*
   flashing mode. *You should see a red flashing kite.* Now you can copy
-  ``rp2040.uf2`` to ``/media/YOURUSER/RPI-RP2/``. Maybe. 
+  ``rp2040.uf2`` to ``/media/YOURUSER/RPI-RP2/``. Maybe.
 
 - Or, you can hold MENU while powering on. The *badge* will rewrite the
   RP2040 co-processor firmware automatically.

@@ -1,18 +1,23 @@
 // Use and re-export.
 pub use embedded_graphics::pixelcolor::{Rgb565, RgbColor};
 
-// Pull in alloc even though we're using no_std.
-extern crate alloc;
-use alloc::vec::Vec;
+use std::sync::Arc;
 
-use esp_hal::Blocking;
-use esp_hal::delay::Delay;
-use esp_hal::gpio::{GpioPin, Level, Output, OutputConfig};
-use esp_hal::peripherals::SPI3;
-use esp_hal::spi::master::{Config, Spi};
-use esp_hal::time::Rate;
-
-use esp_println::println;
+use esp_idf_svc::hal::delay::Ets;
+use esp_idf_svc::hal::gpio::{
+    AnyInputPin,
+    AnyOutputPin,
+    Output,
+    PinDriver,
+};
+use esp_idf_svc::hal::spi::{
+    SPI3,
+    SpiDeviceDriver,
+    SpiDriverConfig,
+    SpiDriver,
+    SpiConfig,
+};
+use esp_idf_svc::hal::units::Hertz;
 
 use display_interface_spi::SPIInterface;
 
@@ -22,7 +27,6 @@ use embedded_graphics::{
     primitives::{PrimitiveStyle, Rectangle},
     text::{Baseline, Text},
 };
-use embedded_hal_bus::spi::{ExclusiveDevice, NoDelay};
 
 use ili9341::{DisplaySize240x320, Ili9341, Orientation};
 
@@ -53,40 +57,49 @@ struct Ili9341Command {
 }
 
 type TFTSpiInterface<'spi> = SPIInterface<
-    ExclusiveDevice<Spi<'spi, Blocking>, Output<'spi>, NoDelay>,
-    Output<'spi>>;
+    SpiDeviceDriver<'spi, Arc<SpiDriver<'spi>>>,
+    PinDriver<'spi, AnyOutputPin, Output>,
+>;
 
 pub struct Display<'spi> {
-    display: Ili9341<TFTSpiInterface<'spi>, Output<'spi>>,
+    display: Ili9341<
+        TFTSpiInterface<'spi>,
+        PinDriver<'spi, AnyOutputPin, Output>,
+    >,
 }
 
 
 impl<'spi> Display<'spi> {
     pub fn new(
         spi3: SPI3,
-        sclk: GpioPin<18>,
-        miso: GpioPin<21>, // sdi
-        mosi: GpioPin<23>, // sdo
-        cs: GpioPin<32>, // or also 21..
-        rst: GpioPin<25>,
-        dc: GpioPin<33>,
+        sclk: AnyOutputPin, // Gpio18,
+        _miso: AnyInputPin, // Gpio21, // sdi, unused
+        mosi: AnyOutputPin, // Gpio23, // sdo
+        cs: AnyOutputPin, // Gpio32,
+        rst: AnyOutputPin, // Gpio25,
+        dc: AnyOutputPin, // Gpio33,
     ) -> Display<'spi> {
-        println!("Starting mchdisplay::Display");
+        log::info!("Starting mchdisplay::Display");
 
-        let config = OutputConfig::default();
-        let rst_output = Output::new(rst, Level::Low, config);
-        let dc_output = Output::new(dc, Level::Low, config);
+        let mut rst_output = PinDriver::output(rst).unwrap();
+        rst_output.set_low().unwrap();
+        let mut dc_output = PinDriver::output(dc).unwrap();
+        dc_output.set_low().unwrap();
 
-        let spi = Spi::new(spi3, Self::create_config())
-            .unwrap()
-            .with_sck(sclk)
-            .with_miso(miso) // order matters
-            .with_mosi(mosi) // order matters
-            // with cable-select 21 ??
-            ;
+        let spi_driver = SpiDriver::new(
+            spi3,
+            sclk,
+            mosi, // sdo/MOSI
+            Option::<AnyInputPin>::None, // sdi/MISO, unused
+            &SpiDriverConfig::new()
+        ).unwrap();
 
-        let cs_output = Output::new(cs, Level::High, config); // cs == miso??
-        let spi_device = ExclusiveDevice::new_no_delay(spi, cs_output).unwrap();
+        let spi_device = SpiDeviceDriver::new(
+            Arc::new(spi_driver),
+            Some(cs),
+            &Self::create_config(),
+        ).unwrap();
+
         let mut interface = SPIInterface::new(spi_device, dc_output);
 
         let init_sequence = [
@@ -181,7 +194,7 @@ impl<'spi> Display<'spi> {
         let display = Ili9341::new(
             interface,
             rst_output,
-            &mut Delay::new(),
+            &mut Ets,
             Orientation::Landscape,
             DisplaySize240x320,
         ).unwrap();
@@ -189,15 +202,13 @@ impl<'spi> Display<'spi> {
         Display { display }
     }
 
-    fn create_config() -> Config {
-        Config::default().with_frequency(Rate::from_mhz(40))
+    fn create_config() -> SpiConfig {
+        SpiConfig::default().baudrate(Hertz(40_000_000))
     }
 
     pub fn clear(&mut self, color: Rgb565) {
         self.display.clear(color).unwrap();
     }
-
-    //pub fn draw_on_display(&mut self, draw_func: impl Fn(f64) -> None)
 
     pub fn part_clear(&mut self, x: i32, y: i32, w: u32, h: u32) {
         Rectangle::new(Point::new(x, y), Size::new(w, h))

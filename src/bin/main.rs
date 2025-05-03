@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use esp_idf_svc::hal::delay::FreeRtos;
 use esp_idf_svc::hal::gpio::PinDriver;
 use esp_idf_svc::hal::prelude::Peripherals;
@@ -68,9 +70,11 @@ fn main() {
     loop {
         FreeRtos::delay_ms(1000);
 
-        log::info!("bla bla bla");
+        let start = Instant::now();
         tft.clear(Rgb565::WHITE);
         tft.println(s.as_str(), n, n);
+
+        log::info!("Update took {} ms", start.elapsed().as_millis());
         n = (n + 10) % 60;
     }
 }

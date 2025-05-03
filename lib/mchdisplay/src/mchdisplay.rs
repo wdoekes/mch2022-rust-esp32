@@ -1,8 +1,6 @@
 // Use and re-export.
 pub use embedded_graphics::pixelcolor::{Rgb565, RgbColor};
 
-use std::sync::Arc;
-
 use esp_idf_svc::hal::delay::Ets;
 use esp_idf_svc::hal::gpio::{
     AnyInputPin,
@@ -57,7 +55,7 @@ struct Ili9341Command {
 }
 
 type TFTSpiInterface<'spi> = SPIInterface<
-    SpiDeviceDriver<'spi, Arc<SpiDriver<'spi>>>,
+    SpiDeviceDriver<'spi, SpiDriver<'spi>>,
     PinDriver<'spi, AnyOutputPin, Output>,
 >;
 
@@ -95,7 +93,7 @@ impl<'spi> Display<'spi> {
         ).unwrap();
 
         let spi_device = SpiDeviceDriver::new(
-            Arc::new(spi_driver),
+            spi_driver,
             Some(cs),
             &Self::create_config(),
         ).unwrap();

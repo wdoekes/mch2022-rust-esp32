@@ -1,5 +1,5 @@
 .PHONY: all
-all: clippy debug release
+all: clippy debug
 
 .PHONY: clippy
 clippy:

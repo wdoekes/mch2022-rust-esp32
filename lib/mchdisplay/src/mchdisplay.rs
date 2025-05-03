@@ -84,17 +84,13 @@ impl<'spi> Display<'spi> {
         let mut dc_output = PinDriver::output(dc).unwrap();
         dc_output.set_low().unwrap();
 
-        let spi_driver = SpiDriver::new(
+        let spi_device = SpiDeviceDriver::new_single(
             spi3,
             sclk,
             mosi, // sdo/MOSI
             Option::<AnyInputPin>::None, // sdi/MISO, unused
-            &SpiDriverConfig::new()
-        ).unwrap();
-
-        let spi_device = SpiDeviceDriver::new(
-            spi_driver,
             Some(cs),
+            &SpiDriverConfig::new(),
             &Self::create_config(),
         ).unwrap();
 

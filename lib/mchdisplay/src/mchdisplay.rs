@@ -198,7 +198,9 @@ impl<'spi> Display<'spi> {
     }
 
     fn create_config() -> SpiConfig {
-        SpiConfig::default().baudrate(Hertz(40_000_000))
+        SpiConfig::default()
+            .baudrate(Hertz(40_000_000))
+            .write_only(true)
     }
 
     pub fn clear(&mut self, color: Rgb565) {

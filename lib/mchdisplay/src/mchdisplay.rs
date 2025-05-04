@@ -8,8 +8,9 @@ use esp_idf_svc::hal::gpio::{
     Output,
     PinDriver,
 };
+use esp_idf_svc::hal::peripheral::Peripheral;
 use esp_idf_svc::hal::spi::{
-    SPI3,
+    SpiAnyPins,
     SpiDeviceDriver,
     SpiDriverConfig,
     SpiDriver,
@@ -68,14 +69,14 @@ pub struct Display<'spi> {
 
 
 impl<'spi> Display<'spi> {
-    pub fn new(
-        spi3: SPI3,
+    pub fn new<SPI: SpiAnyPins>(
+        spi: impl Peripheral<P = SPI> + 'spi,
         sclk: AnyOutputPin, // Gpio18,
         _miso: AnyInputPin, // Gpio21, // sdi, unused
         mosi: AnyOutputPin, // Gpio23, // sdo
-        cs: AnyOutputPin, // Gpio32,
-        rst: AnyOutputPin, // Gpio25,
-        dc: AnyOutputPin, // Gpio33,
+        cs: AnyOutputPin,   // Gpio32,
+        rst: AnyOutputPin,  // Gpio25,
+        dc: AnyOutputPin,   // Gpio33,
     ) -> Display<'spi> {
         log::info!("Starting mchdisplay::Display");
 
@@ -85,7 +86,7 @@ impl<'spi> Display<'spi> {
         dc_output.set_low().unwrap();
 
         let spi_device = SpiDeviceDriver::new_single(
-            spi3,
+            spi,
             sclk,
             mosi, // sdo/MOSI
             Option::<AnyInputPin>::None, // sdi/MISO, unused

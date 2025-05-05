@@ -104,6 +104,18 @@ This has been observed with ``espflash 3.3.0`` (with ``rustc
 1.85.0-nightly``). Generally, rerunning ``make flash`` a couple of times
 is sufficient to make it work.
 
+However, it might get really stuck/looping. In that case using the
+ESP-IDF tools work better.
+
+This should get you back to a clean state:
+
+.. code-block:: console
+
+    $ PYTHONPATH=.embuild/espressif/python_env/idf5.3_py3.10_env/lib/python3.10/site-packages \
+      python3 -m esptool --chip esp32 --port /dev/ttyACM0 erase_flash
+
+*(Change path as appropriate needed.)*
+
 
 -------------------
 Restoring the badge

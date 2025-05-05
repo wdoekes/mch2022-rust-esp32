@@ -64,6 +64,7 @@ fn main() {
     let s = format!("Hello MCH build {}", BUILD_TIMESTAMP);
     tft.clear(Rgb565::WHITE);
     tft.println(s.as_str(), 0, 0);
+    tft.flush();
     log::info!("MCH Badge Display inited");
 
     let mut n = 0_i32;
@@ -71,10 +72,15 @@ fn main() {
         FreeRtos::delay_ms(1000);
 
         let start = Instant::now();
-        tft.clear(Rgb565::WHITE);
+        if n == 0 {
+            tft.clear(Rgb565::BLACK);
+        } else {
+            tft.clear(Rgb565::WHITE);
+        }
+        n = (n + 10) % 60;
         tft.println(s.as_str(), n, n);
+        tft.flush();
 
         log::info!("Update took {} ms", start.elapsed().as_millis());
-        n = (n + 10) % 60;
     }
 }

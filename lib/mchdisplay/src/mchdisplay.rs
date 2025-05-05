@@ -27,7 +27,9 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 
-use ili9341::{DisplaySize240x320, Ili9341, Orientation};
+use ili9341::{DisplayError, DisplaySize240x320, Ili9341, Orientation};
+
+use crate::framebuffer::{DrawRawSlice, Framebuffer};
 
 
 const ILI9341_POWERA: u8 = 0xCB; // Power control A register
@@ -50,21 +52,34 @@ const ILI9341_NVGAMCTRL: u8 = 0xE1; // Negative Voltage Gamma control
 const ILI9341_GAMSET: u8 = 0x26; // Display Invert On Gamma
 
 
+type DisplayResult<T = (), E = DisplayError> = core::result::Result<T, E>;
+
 struct Ili9341Command {
     cmd: u8,
     data: Vec<u8>,
 }
 
-type TFTSpiInterface<'spi> = SPIInterface<
+type TftSpiInterface<'spi> = SPIInterface<
     SpiDeviceDriver<'spi, SpiDriver<'spi>>,
     PinDriver<'spi, AnyOutputPin, Output>,
 >;
 
+type MchIli9341<'spi> = Ili9341<
+    TftSpiInterface<'spi>,
+    PinDriver<'spi, AnyOutputPin, Output>,
+>;
+
+type MchFramebuffer = Framebuffer<320, 240>;
+
 pub struct Display<'spi> {
-    display: Ili9341<
-        TFTSpiInterface<'spi>,
-        PinDriver<'spi, AnyOutputPin, Output>,
-    >,
+    display: MchIli9341<'spi>,
+    framebuffer: MchFramebuffer,
+}
+
+impl<'spi> DrawRawSlice for MchIli9341<'spi> {
+    fn draw_raw_slice(&mut self, x0: u16, y0: u16, x1: u16, y1: u16, data: &[u16]) -> DisplayResult {
+        Ili9341::draw_raw_slice(self, x0, y0, x1, y1, data)
+    }
 }
 
 
@@ -194,7 +209,15 @@ impl<'spi> Display<'spi> {
             DisplaySize240x320,
         ).unwrap();
 
-        Display { display }
+        Display {
+            display,
+            // TODO: Decide whether to keep this beast. It's very memory
+            // expensive (150KiB).  But it makes drawing on the screen a
+            // lot nicer. (No manual clearing.) Note that esp-hal raw
+            // SPI stuff was blazing fast, so if we want back to pure
+            // ESP-HAL without ESP-IDF, we could do without.
+            framebuffer: MchFramebuffer::new(),
+        }
     }
 
     fn create_config() -> SpiConfig {
@@ -204,23 +227,27 @@ impl<'spi> Display<'spi> {
     }
 
     pub fn clear(&mut self, color: Rgb565) {
-        self.display.clear(color).unwrap();
+        self.framebuffer.clear(color).unwrap();
     }
 
     pub fn part_clear(&mut self, x: i32, y: i32, w: u32, h: u32) {
         Rectangle::new(Point::new(x, y), Size::new(w, h))
             .into_styled(PrimitiveStyle::with_fill(Rgb565::WHITE))
-            .draw(&mut self.display)
+            .draw(&mut self.framebuffer)
             .unwrap();
     }
 
     pub fn println(&mut self, text: &str, x: i32, y: i32) {
         let style = MonoTextStyle::new(&FONT_8X13, Rgb565::RED);
         //Text::with_alignment(text, Point::new(x, y), style, Alignment::Center)
-        //    .draw(&mut self.display)
+        //    .draw(&mut self.framebuffer)
         //    .unwrap();
         Text::with_baseline(text, Point::new(x, y), style, Baseline::Top)
-            .draw(&mut self.display)
+            .draw(&mut self.framebuffer)
             .unwrap();
+    }
+
+    pub fn flush(&mut self) {
+        self.framebuffer.flush(&mut self.display).unwrap();
     }
 }

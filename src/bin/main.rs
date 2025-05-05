@@ -41,21 +41,19 @@ fn main() {
     let peripherals = Peripherals::take().unwrap();
     let pins = peripherals.pins;
 
-    let mode = pins.gpio26;
+    let mode = pins.gpio26; // FPGA vs. ILI
     let mut mode_output = PinDriver::output(mode).unwrap();
     mode_output.set_low().unwrap();
 
-    let dc = pins.gpio33;
-    let mosi = pins.gpio23; // sdo -> MOSI
     let sclk = pins.gpio18;
-    let miso = pins.gpio21; // sdi -> MISO
-    let cs = pins.gpio32; // or also 21 ??
+    let mosi = pins.gpio23; // sdo
+    let cs = pins.gpio32;
     let rst = pins.gpio25;
+    let dc = pins.gpio33;
 
     let mut tft = Display::new(
         peripherals.spi3,
         sclk.into(),
-        miso.into(),
         mosi.into(),
         cs.into(),
         rst.into(),

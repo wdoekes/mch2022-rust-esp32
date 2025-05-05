@@ -27,11 +27,15 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 
-use ili9341::{DisplayError, DisplaySize240x320, Ili9341, Orientation};
+use ili9341::{DisplaySize240x320, Ili9341, Orientation};
 
+#[cfg(feature = "framebuffer")]
+use ili9341::DisplayError;
+
+#[cfg(feature = "framebuffer")]
 use crate::framebuffer::{DrawRawSlice, Framebuffer};
 
-
+#[cfg(feature = "framebuffer")]
 type DisplayResult<T = (), E = DisplayError> = core::result::Result<T, E>;
 
 type TftSpiInterface<'spi> = SPIInterface<
@@ -44,18 +48,23 @@ type MchIli9341<'spi> = Ili9341<
     PinDriver<'spi, AnyOutputPin, Output>,
 >;
 
+#[cfg(feature = "framebuffer")]
 type MchFramebuffer = Framebuffer<320, 240>;
 
 pub struct Display<'spi> {
     display: MchIli9341<'spi>,
+    #[cfg(feature = "framebuffer")]
     framebuffer: MchFramebuffer,
 }
 
+
+#[cfg(feature = "framebuffer")]
 impl<'spi> DrawRawSlice for MchIli9341<'spi> {
     fn draw_raw_slice(&mut self, x0: u16, y0: u16, x1: u16, y1: u16, data: &[u16]) -> DisplayResult {
         Ili9341::draw_raw_slice(self, x0, y0, x1, y1, data)
     }
 }
+
 
 
 impl<'spi> Display<'spi> {
@@ -93,6 +102,7 @@ impl<'spi> Display<'spi> {
 
         Display {
             display,
+            #[cfg(feature = "framebuffer")]
             // TODO: Decide whether to keep this beast. It's very memory
             // expensive (150KiB).  But it makes drawing on the screen a
             // lot nicer. (No manual clearing.) Note that esp-hal raw
@@ -102,6 +112,15 @@ impl<'spi> Display<'spi> {
         }
     }
 
+    #[cfg(not(feature = "framebuffer"))]
+    fn virtual_display(&mut self) -> &mut MchIli9341<'spi> {
+        &mut self.display
+    }
+    #[cfg(feature = "framebuffer")]
+    fn virtual_display(&mut self) -> &mut MchFramebuffer {
+        &mut self.framebuffer
+    }
+
     fn create_config() -> SpiConfig {
         SpiConfig::default()
             .baudrate(Hertz(40_000_000))
@@ -109,13 +128,13 @@ impl<'spi> Display<'spi> {
     }
 
     pub fn clear(&mut self, color: Rgb565) {
-        self.framebuffer.clear(color).unwrap();
+        self.virtual_display().clear(color).unwrap();
     }
 
-    pub fn part_clear(&mut self, x: i32, y: i32, w: u32, h: u32) {
+    pub fn part_clear(&mut self, color: Rgb565, x: i32, y: i32, w: u32, h: u32) {
         Rectangle::new(Point::new(x, y), Size::new(w, h))
-            .into_styled(PrimitiveStyle::with_fill(Rgb565::WHITE))
-            .draw(&mut self.framebuffer)
+            .into_styled(PrimitiveStyle::with_fill(color))
+            .draw(self.virtual_display())
             .unwrap();
     }
 
@@ -125,11 +144,12 @@ impl<'spi> Display<'spi> {
         //    .draw(&mut self.framebuffer)
         //    .unwrap();
         Text::with_baseline(text, Point::new(x, y), style, Baseline::Top)
-            .draw(&mut self.framebuffer)
+            .draw(self.virtual_display())
             .unwrap();
     }
 
     pub fn flush(&mut self) {
+        #[cfg(feature = "framebuffer")]
         self.framebuffer.flush(&mut self.display).unwrap();
     }
 }

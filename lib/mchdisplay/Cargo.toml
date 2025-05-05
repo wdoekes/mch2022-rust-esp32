@@ -3,6 +3,10 @@ name = "hellomch-mchdisplay"
 edition = "2021"
 version = "0.1.0"
 
+[features]
+default = []      # Default, no framebuffer
+framebuffer = []  # Optional: Enable framebuffer, which requires 150KiB memory
+
 [dependencies]
 log = "0.4"
 esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }

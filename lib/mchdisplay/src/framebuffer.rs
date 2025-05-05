@@ -62,22 +62,27 @@ impl DirtyArea {
 
 
 pub struct Framebuffer<const WIDTH: u16, const HEIGHT: u16> {
-    // 320x240*2 == 150KiB, which is very very very much of the limited memory we have. We
-    // definitely cannot allocate much more.
+    // For one buffer, we need 320x240*2 == 150KiB. for two buffers, we
+    // need double that. If we have PSRAM, we can do that.
+    //
     // When updating the screen, we have to choose between:
     // - Doing contiguous updates (i.e. ignore dirty width and use full width).
     // - Doing N updates for N rows, so that we can use slices for each row.
-    // We need it in a Box. Otherwise this would end up on the heap
+    // - Writing to a temporary buffer and update a smaller rectangle of
+    //   the screen. This option requires double memory.
+    // We need it in a Box. Otherwise this would end up on the stack
     // where it definitely doesn't fit, and crashes the app before we
     // even start.
     current: Box<[u16]>,
+    partial: Option<Box<[u16]>>,
     dirty_area: DirtyArea,
 }
 
 impl<const WIDTH: u16, const HEIGHT: u16> Framebuffer<WIDTH, HEIGHT> {
     pub fn new() -> Self {
         Self {
-            current: vec![0u16; (WIDTH as usize) * (HEIGHT as usize)].into_boxed_slice(),
+            current: vec![0u16; (HEIGHT as usize) * (WIDTH as usize)].into_boxed_slice(),
+            partial: None,
             dirty_area: DirtyArea::new(),
         }
     }
@@ -97,25 +102,41 @@ impl<const WIDTH: u16, const HEIGHT: u16> Framebuffer<WIDTH, HEIGHT> {
         if self.dirty_area.is_dirty() {
             #[allow(dead_code)]
             enum DrawMethod {
-                // Forget about xmin/xmax and draw all dirty lines. We have contiguous memory and
-                // can draw with one command.
+                // Forget about xmin/xmax and draw all dirty lines. We
+                // have contiguous memory and can draw with one command.
                 // Test timings:
-                // - 167 ms - full screen update
-                // -  40 ms - small text move down
-                // -  59 ms - text moved up a few lines
+                // - 140 ms - full screen update
+                // -  34 ms - small text move down
+                // -  50 ms - text moved up a few lines
                 Contiguous,
                 // Draw slices for each line.
                 // Test timings:
-                // - 206 ms - full screen update
-                // -  40 ms - small text move down
-                // -  63 ms - text moved up a few lines
+                // - 168 ms - full screen update
+                // -  34 ms - small text move down
+                // -  52 ms - text moved up a few lines
+                // Only in rare cases (a vertical line) would it make
+                // sense to use this.
                 LineSlices,
-                // Conclusion, only in rare cases (a vertical line)
-                // would it make sense to use LineSlices.
+                // Copy slices into a contiguous buffer. We need more
+                // memory for this.
+                // - 156 ms - full screen update
+                // -  32 ms - small text move down
+                // -  48 ms - text moved up a few lines
+                // Updating the entire screen is slower, as expected,
+                // but otherwise it can be faster.
+                UseExtraBuffer,
             }
 
-            // The unused LineSlices is kept for reference only.
-            let draw_method = DrawMethod::Contiguous;
+            // Select Contiguous for full width updates and use the
+            // extra buffer for other cases, now that we have sufficient
+            // RAM.
+            // (The unused LineSlices method above is kept for reference only.)
+            let draw_method: DrawMethod;
+            if self.dirty_area.width() == WIDTH {
+                draw_method = DrawMethod::Contiguous;
+            } else {
+                draw_method = DrawMethod::UseExtraBuffer;
+            }
 
             let x0: u16;
             let y0: u16 = self.dirty_area.y0();
@@ -127,7 +148,7 @@ impl<const WIDTH: u16, const HEIGHT: u16> Framebuffer<WIDTH, HEIGHT> {
                     x0 = 0;
                     w = WIDTH;
                 },
-                DrawMethod::LineSlices => {
+                DrawMethod::LineSlices | DrawMethod::UseExtraBuffer => {
                     x0 = self.dirty_area.x0();
                     w = self.dirty_area.width();
                 }
@@ -152,7 +173,24 @@ impl<const WIDTH: u16, const HEIGHT: u16> Framebuffer<WIDTH, HEIGHT> {
                         let slice = &self.current[start..end + 1];
                         display.draw_raw_slice(x0, y, x0 + w - 1, y, &slice)?;
                     }
-                }
+                },
+                DrawMethod::UseExtraBuffer => {
+                    if self.partial == None {
+                        log::info!("framebuffer: alloced a second framebuffer");
+                        self.partial = Some(
+                            vec![0u16; (HEIGHT as usize) * (WIDTH as usize)].into_boxed_slice());
+                    }
+                    let partial = self.partial.as_mut().unwrap();
+                    let mut dest: usize = 0;
+                    for y in y0..y0 + h {
+                        let start = Self::index(x0, y);
+                        let slice = &self.current[start..start + (w as usize)];
+                        partial[dest..dest + (w as usize)].copy_from_slice(slice);
+                        dest += w as usize;
+                    }
+                    let slice = &partial[0..(h as usize * w as usize)];
+                    display.draw_raw_slice(x0, y0, x0 + w - 1, y0 + h - 1, &slice)?;
+                },
             }
 
             self.dirty_area.clear();

@@ -150,3 +150,41 @@ Flash this using:
 
 - Or, you can hold MENU while powering on. The *badge* will rewrite the
   RP2040 co-processor firmware automatically.
+
+
+---------
+Debugging
+---------
+
+*Quickly getting crash location information.*
+
+You might see this::
+
+    10:24:36.318132: I (4131) wifi:wifi driver task: 3ffc7ea4, prio:23, stack:6656, core=0
+    10:24:36.324345:
+    10:24:36.324453: ***ERROR*** A stack overflow in task main has been detected.
+    10:24:36.329814:
+    10:24:36.329994:
+    10:24:36.330169: Backtrace: 0x400830be:0x3ffba170 0x4008ab7d:0x3ffba190 0x4008b83e:0x3ffba1b0 0x4008c7d7:0x3ffba230 0x4008b9b0:0x3ffba260 0x4008b962:0x3ffba290 0x40090baa:0x00000006 |<-CORRUPTED
+
+You can get info using the local ESP *addr2line(1)*:
+
+.. code-block:: console
+
+    $ ./.embuild/espressif/tools/xtensa-esp-elf/esp-13.2.0_20240530/xtensa-esp-elf/bin/xtensa-esp32-elf-addr2line \
+        -Cfe target/xtensa-esp32-espidf/debug/hellomch 0x400830be 0x4008ab7d 0x4008b83e 0x4008c7d7 0x4008b9b0 0x4008b962 0x40090baa
+
+    panic_abort
+    .embuild/espressif/esp-idf/v5.3.2/components/esp_system/panic.c:463
+    esp_system_abort
+    .embuild/espressif/esp-idf/v5.3.2/components/esp_system/port/esp_system_chip.c:92
+    vApplicationStackOverflowHook
+    .embuild/espressif/esp-idf/v5.3.2/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c:563
+    vTaskSwitchContext
+    .embuild/espressif/esp-idf/v5.3.2/components/freertos/FreeRTOS-Kernel/tasks.c:3701 (discriminator 7)
+    _frxt_dispatch
+    .embuild/espressif/esp-idf/v5.3.2/components/freertos/FreeRTOS-Kernel/portable/xtensa/portasm.S:451
+    _frxt_int_exit
+    .embuild/espressif/esp-idf/v5.3.2/components/freertos/FreeRTOS-Kernel/portable/xtensa/portasm.S:246
+    esp_log_write
+    .embuild/espressif/esp-idf/v5.3.2/components/log/log.c:220

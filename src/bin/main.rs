@@ -44,31 +44,26 @@ fn main() {
     */
 
     let peripherals = Peripherals::take().unwrap();
-    let pins = peripherals.pins;
 
-    let mode = pins.gpio26; // FPGA vs. ILI
+    let mode = peripherals.pins.gpio26; // FPGA vs. ILI
     let mut mode_output = PinDriver::output(mode).unwrap();
     mode_output.set_low().unwrap();
 
-    let sclk = pins.gpio18;
-    let mosi = pins.gpio23; // sdo
-    let cs = pins.gpio32;
-    let rst = pins.gpio25;
-    let dc = pins.gpio33;
-
-    let mut tft = Display::new(
+    let mut display = Display::new(
         peripherals.spi3,
-        sclk.into(),
-        mosi.into(),
-        cs.into(),
-        rst.into(),
-        dc.into(),
+        peripherals.pins.gpio18.into(), // sclk, clock
+        peripherals.pins.gpio23.into(), // mosi/sdo, master out
+        peripherals.pins.gpio32.into(), // cs, chip select
+        peripherals.pins.gpio25.into(), // reset
+        peripherals.pins.gpio33.into(), // dc, data/command
     );
-    let s = format!("Hello MCH build {}", BUILD_TIMESTAMP);
-    tft.clear(Rgb565::WHITE);
-    tft.println(s.as_str(), 0, 0);
-    tft.flush();
     log::info!("MCH Badge Display inited");
+    util::show_memory_status();
+
+    let s = format!("Hello MCH build {}", BUILD_TIMESTAMP);
+    display.clear(Rgb565::WHITE);
+    display.println(s.as_str(), 0, 0);
+    display.flush();
     util::show_memory_status();
 
     let mut n = 0_i32;
@@ -77,14 +72,13 @@ fn main() {
 
         let start = Instant::now();
         if n == 0 {
-            tft.clear(Rgb565::BLACK);
+            display.clear(Rgb565::BLACK);
         } else {
-            tft.clear(Rgb565::WHITE);
+            display.clear(Rgb565::WHITE);
         }
         n = (n + 10) % 60;
-        tft.println(s.as_str(), n, n);
-        tft.flush();
-
+        display.println(s.as_str(), n, n);
+        display.flush();
         log::info!("Update took {} ms", start.elapsed().as_millis());
         util::show_memory_status();
     }

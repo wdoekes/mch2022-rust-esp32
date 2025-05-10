@@ -11,16 +11,12 @@ with-psram = []
 [dependencies]
 log = "0.4"
 esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
+
 display-interface = "0.5"
 display-interface-spi = "0.5"
-embedded-hal = "1"
 embedded-graphics = "0.8"
+embedded-hal = "1"
 ili9341 = "0.6"
-
-[profile.dev]
-# Rust debug is too slow.
-# For debug builds always builds with some optimization
-opt-level = "s"
 
 [profile.release]
 #codegen-units    = 1     # LLVM can perform better optimizations using a single thread
@@ -30,6 +26,11 @@ opt-level = "s"
 #lto              = 'fat'
 opt-level        = 's'
 #overflow-checks  = false
+
+[profile.dev]
+# Rust debug is too slow.
+# For debug builds always builds with some optimization
+opt-level = "s"
 
 [build-dependencies]
 embuild = "0.33"

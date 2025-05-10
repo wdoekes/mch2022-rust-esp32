@@ -6,11 +6,15 @@ use esp_idf_svc::hal::prelude::Peripherals;
 
 use hellomch_mchdisplay::mchdisplay::{Display, Rgb565, RgbColor};
 
+use hellomch::util;
+
+
 const BUILD_TIMESTAMP: &str = env!("BUILD_TIMESTAMP");
 #[cfg(feature = "version-from-env")]
 const BUILD_VERSION: &str = env!("BUILD_VERSION");
 #[cfg(not(feature = "version-from-env"))]
 const BUILD_VERSION: &str = git_version::git_version!();
+
 
 fn main() {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -23,6 +27,7 @@ fn main() {
     log::info!("Starting.. waiting 2500ms for debug");
     FreeRtos::delay_ms(2500);
     log::info!("Started {} ts {}", BUILD_VERSION, BUILD_TIMESTAMP);
+    util::show_memory_status();
 
     /*
     esp_alloc::heap_allocator!(size: 72 * 1024);
@@ -64,10 +69,11 @@ fn main() {
     tft.println(s.as_str(), 0, 0);
     tft.flush();
     log::info!("MCH Badge Display inited");
+    util::show_memory_status();
 
     let mut n = 0_i32;
     loop {
-        FreeRtos::delay_ms(1000);
+        FreeRtos::delay_ms(2000);
 
         let start = Instant::now();
         if n == 0 {
@@ -80,5 +86,6 @@ fn main() {
         tft.flush();
 
         log::info!("Update took {} ms", start.elapsed().as_millis());
+        util::show_memory_status();
     }
 }

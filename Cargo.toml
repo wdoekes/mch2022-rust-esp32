@@ -10,17 +10,20 @@ path = "./src/bin/main.rs"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [profile.release]
-#codegen-units    = 1     # LLVM can perform better optimizations using a single thread
-#debug            = 2
+#codegen-units = 1       # LLVM can perform better optimizations using a single thread
+debug = false
+opt-level = "s"		# Optimize for speed
 #debug-assertions = false
-#incremental      = false
-#lto              = 'fat'
-opt-level = "s"
 #overflow-checks  = false
+#incremental = false
+lto = 'fat'		# Or 'thin' if 'fat' is too slow
 
 [profile.dev]
-debug = true    # Symbols are nice and they don't increase the size on Flash
-opt-level = "z"
+debug = true		# Symbols are nice and they don't increase the size on Flash
+opt-level = 1		# More optimizations than 0 or "z"
+debug-assertions = true
+overflow-checks = true
+lto = false
 
 [features]
 default = []
@@ -28,7 +31,7 @@ experimental = ["esp-idf-svc/experimental"]
 version-from-env = []
 
 [dependencies]
-hellomch-mchdisplay = { path = "lib/mchdisplay", features = ["framebuffer"] }
+hellomch-mchdisplay = { path = "lib/mchdisplay", features = ["with-framebuffer", "with-psram"] }
 
 log = "0.4"
 esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }

@@ -1,3 +1,9 @@
+#[cfg(feature = "with-psram")]
+use core::{mem, slice};
+
+#[cfg(feature = "with-psram")]
+use esp_idf_svc::sys::{heap_caps_malloc, MALLOC_CAP_SPIRAM, MALLOC_CAP_8BIT};
+
 use embedded_graphics::{
     draw_target::DrawTarget,
     geometry::{OriginDimensions, Point},
@@ -61,6 +67,31 @@ impl DirtyArea {
 }
 
 
+/// Allocates a buffer of `W` * `H` elements of type `T`, using PSRAM if enabled.
+///
+/// NOTE: The vector is single dimensional even though two size
+/// parameters are provided.
+fn allocate_box<T: Default + Clone, const W: u16, const H: u16>() -> Box<[T]> {
+    let n: usize = (W as usize * H as usize).into(); // compiler won't allow const here
+
+    #[cfg(feature = "with-psram")]
+    unsafe {
+        let size = n * mem::size_of::<T>();
+        let raw = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) as *mut T;
+        if raw.is_null() {
+            panic!("Failed to allocate framebuffer in PSRAM");
+        }
+        let slice = slice::from_raw_parts_mut(raw, n);
+        Box::from_raw(slice)
+    }
+
+    #[cfg(not(feature = "with-psram"))]
+    {
+        vec![T::default(); n].into_boxed_slice()
+    }
+}
+
+
 pub struct Framebuffer<const WIDTH: u16, const HEIGHT: u16> {
     // For one buffer, we need 320x240*2 == 150KiB. for two buffers, we
     // need double that. If we have PSRAM, we can do that.
@@ -81,7 +112,7 @@ pub struct Framebuffer<const WIDTH: u16, const HEIGHT: u16> {
 impl<const WIDTH: u16, const HEIGHT: u16> Framebuffer<WIDTH, HEIGHT> {
     pub fn new() -> Self {
         Self {
-            current: vec![0u16; (HEIGHT as usize) * (WIDTH as usize)].into_boxed_slice(),
+            current: allocate_box::<u16, WIDTH, HEIGHT>(),
             partial: None,
             dirty_area: DirtyArea::new(),
         }
@@ -177,8 +208,7 @@ impl<const WIDTH: u16, const HEIGHT: u16> Framebuffer<WIDTH, HEIGHT> {
                 DrawMethod::UseExtraBuffer => {
                     if self.partial == None {
                         log::info!("framebuffer: alloced a second framebuffer");
-                        self.partial = Some(
-                            vec![0u16; (HEIGHT as usize) * (WIDTH as usize)].into_boxed_slice());
+                        self.partial = Some(allocate_box::<u16, WIDTH, HEIGHT>());
                     }
                     let partial = self.partial.as_mut().unwrap();
                     let mut dest: usize = 0;

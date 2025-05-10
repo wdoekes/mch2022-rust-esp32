@@ -1,4 +1,4 @@
 pub mod mchdisplay;
 
-#[cfg(feature = "framebuffer")]
+#[cfg(feature = "with-framebuffer")]
 mod framebuffer;

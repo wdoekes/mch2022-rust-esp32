@@ -29,13 +29,13 @@ use embedded_graphics::{
 
 use ili9341::{DisplaySize240x320, Ili9341, Orientation};
 
-#[cfg(feature = "framebuffer")]
+#[cfg(feature = "with-framebuffer")]
 use ili9341::DisplayError;
 
-#[cfg(feature = "framebuffer")]
+#[cfg(feature = "with-framebuffer")]
 use crate::framebuffer::{DrawRawSlice, Framebuffer};
 
-#[cfg(feature = "framebuffer")]
+#[cfg(feature = "with-framebuffer")]
 type DisplayResult<T = (), E = DisplayError> = core::result::Result<T, E>;
 
 type TftSpiInterface<'spi> = SPIInterface<
@@ -48,17 +48,17 @@ type MchIli9341<'spi> = Ili9341<
     PinDriver<'spi, AnyOutputPin, Output>,
 >;
 
-#[cfg(feature = "framebuffer")]
+#[cfg(feature = "with-framebuffer")]
 type MchFramebuffer = Framebuffer<320, 240>;
 
 pub struct Display<'spi> {
     display: MchIli9341<'spi>,
-    #[cfg(feature = "framebuffer")]
+    #[cfg(feature = "with-framebuffer")]
     framebuffer: MchFramebuffer,
 }
 
 
-#[cfg(feature = "framebuffer")]
+#[cfg(feature = "with-framebuffer")]
 impl<'spi> DrawRawSlice for MchIli9341<'spi> {
     fn draw_raw_slice(&mut self, x0: u16, y0: u16, x1: u16, y1: u16, data: &[u16]) -> DisplayResult {
         Ili9341::draw_raw_slice(self, x0, y0, x1, y1, data)
@@ -102,7 +102,7 @@ impl<'spi> Display<'spi> {
 
         Display {
             display,
-            #[cfg(feature = "framebuffer")]
+            #[cfg(feature = "with-framebuffer")]
             // TODO: Decide whether to keep this beast. It's very memory
             // expensive (150KiB).  But it makes drawing on the screen a
             // lot nicer. (No manual clearing.) Note that esp-hal raw
@@ -112,11 +112,11 @@ impl<'spi> Display<'spi> {
         }
     }
 
-    #[cfg(not(feature = "framebuffer"))]
+    #[cfg(not(feature = "with-framebuffer"))]
     fn virtual_display(&mut self) -> &mut MchIli9341<'spi> {
         &mut self.display
     }
-    #[cfg(feature = "framebuffer")]
+    #[cfg(feature = "with-framebuffer")]
     fn virtual_display(&mut self) -> &mut MchFramebuffer {
         &mut self.framebuffer
     }
@@ -149,7 +149,7 @@ impl<'spi> Display<'spi> {
     }
 
     pub fn flush(&mut self) {
-        #[cfg(feature = "framebuffer")]
+        #[cfg(feature = "with-framebuffer")]
         self.framebuffer.flush(&mut self.display).unwrap();
     }
 }

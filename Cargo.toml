@@ -13,6 +13,7 @@ harness = false # do not use the built in cargo test harness -> resolve rust-ana
 default = []
 experimental = ["esp-idf-svc/experimental"]
 version-from-env = []
+with-wifi = []
 
 [dependencies]
 hellomch-mchdisplay = { path = "lib/mchdisplay", features = ["with-framebuffer", "with-psram"] }
@@ -20,7 +21,9 @@ hellomch-mchdisplay = { path = "lib/mchdisplay", features = ["with-framebuffer",
 log = "0.4"
 esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
 
+anyhow = "1"
 git-version = "0.3"
+heapless = "0"
 
 [profile.release]
 #codegen-units = 1       # LLVM can perform better optimizations using a single thread

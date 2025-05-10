@@ -1,0 +1,4 @@
+BUILD_FEATURES = --features with-wifi
+
+DEFAULT_WIFI_SSID = PrettyFly
+DEFAULT_WIFI_PASSWORD = ForAWiFi

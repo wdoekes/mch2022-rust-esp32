@@ -1,18 +1,20 @@
 .PHONY: all clippy debug release flash gnumake-env
 
+include config.mk
+
 BUILD_TIMESTAMP := $(shell date +%s)
 .EXPORT_ALL_VARIABLES:
 
 all: clippy debug #release
 
 clippy:
-	cargo clippy
+	cargo clippy $(BUILD_FEATURES)
 
 debug:
-	cargo build
+	cargo build $(BUILD_FEATURES)
 
 release:
-	cargo build --release
+	cargo build --release $(BUILD_FEATURES)
 
 flash:
 	# 16MB is important. So might partitions.csv be!

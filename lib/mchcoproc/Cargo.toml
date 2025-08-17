@@ -7,6 +7,7 @@ version = "0.1.0"
 esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
 
 anyhow = "1"
+thiserror = "1"
 
 [profile.release]
 opt-level = 's'

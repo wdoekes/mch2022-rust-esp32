@@ -3,6 +3,11 @@ use std::sync::{Arc, Mutex};
 use esp_idf_svc::hal::i2c::I2cDriver;
 use esp_idf_svc::hal::delay::TICK_RATE_HZ;
 
+
+#[derive(Debug, thiserror::Error)]
+#[error("unsupported firmware version: {0:#X}")]
+pub struct UnsupportedFirmware(u8);
+
 pub type SharedI2c<'a> = Arc<Mutex<I2cDriver<'a>>>;
 
 const DEPRECATED_TIMEOUT: u32 = TICK_RATE_HZ; // exactly 1 second
@@ -204,6 +209,7 @@ impl From<Rp2040Input> for u8 {
 
 //enum { RP2040_BL_REG_FW_VER, RP2040_BL_REG_BL_VER, RP2040_BL_REG_BL_STATE, RP2040_BL_REG_BL_CTRL };
 
+
 pub struct Rp2040<'a> {
     i2c: SharedI2c<'a>,
     addr: u8,
@@ -217,26 +223,40 @@ impl<'a> Rp2040<'a> {
 
     pub fn get_firmware_version(&mut self) -> anyhow::Result<u8> {
         let mut buf = [0u8; 1];
-        self.i2c
-            .lock().unwrap()
-            .write_read(self.addr, &[Rp2040Reg::FwVer.into()], &mut buf, DEPRECATED_TIMEOUT)?;
+        self.read_reg(Rp2040Reg::FwVer, &mut buf)?;
         self.fw_version = buf[0];
         Ok(self.fw_version)
     }
 
-    // general helper
-    pub fn read_reg(&self, reg: u8, buf: &mut [u8]) -> anyhow::Result<()> {
-        self.i2c.lock().unwrap().write_read(self.addr, &[reg], buf, DEPRECATED_TIMEOUT)?;
+    fn read_vbat_raw(&mut self) -> anyhow::Result<u16> {
+        if (self.fw_version < 0x02) || (self.fw_version == 0xFF) {
+            return Err(UnsupportedFirmware(self.fw_version).into());
+        }
+        let mut buf = [0u8; 2];
+        self.read_reg(Rp2040Reg::AdcValueVbatLo, &mut buf)?;
+        Ok((buf[1] as u16) << 8 | (buf[0] as u16))
+    }
+
+    pub fn read_vbat(&mut self) -> anyhow::Result<f32> {
+        const CONVERSION_FACTOR: f32 = 3.3_f32 / ((1 << 12) as f32);  // 12-bit ADC with 3.3v vref
+        let raw = self.read_vbat_raw()?;
+        Ok((raw as f32) * CONVERSION_FACTOR * 2.0_f32) // Connected through 100k/100k divider
+    }
+
+    fn read_reg(&self, reg: Rp2040Reg, buf: &mut [u8]) -> anyhow::Result<()> {
+        self.i2c.lock().unwrap().write_read(self.addr, &[reg.into()], buf, DEPRECATED_TIMEOUT)?;
         Ok(())
     }
 
-    pub fn write_reg(&self, reg: u8, data: &[u8]) -> anyhow::Result<()> {
+    /*
+    fn write_reg(&self, reg: u8, data: &[u8]) -> anyhow::Result<()> {
         let mut out = Vec::with_capacity(1 + data.len());
         out.push(reg);
         out.extend_from_slice(data);
         self.i2c.lock().unwrap().write(self.addr, &out, DEPRECATED_TIMEOUT)?;
         Ok(())
     }
+    */
 }
 
 /*

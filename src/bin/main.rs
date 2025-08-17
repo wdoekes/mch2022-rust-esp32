@@ -75,7 +75,10 @@ fn main() {
     let rp2040_fw = rp2040.get_firmware_version().unwrap();
     log::info!("RP2040 firmware version: 0x{:02X}", rp2040_fw);
 
-    let s = format!("Hello MCH!\nV:{}\nT:{}\nCO:{:02X}", BUILD_VERSION, BUILD_TIMESTAMP, rp2040_fw);
+    let battery_voltage = rp2040.read_vbat().unwrap();
+    let battery_percent: u8 = (((battery_voltage - 3.6) * 100.0) / (4.1 - 3.6)).clamp(0.0, 100.0) as u8;
+
+    let s = format!("Hello MCH!\nV:{}\nT:{}\nCO:0x{:02X}\nBAT:{}%", BUILD_VERSION, BUILD_TIMESTAMP, rp2040_fw, battery_percent);
     display.clear(Rgb565::WHITE);
     display.println(s.as_str(), 0, 0);
     display.flush();
@@ -115,6 +118,10 @@ fn main() {
         display.flush();
         log::info!("Update took {} ms", start.elapsed().as_millis());
         util::show_memory_status();
+
+        // TEMP: print battery status here
+        let battery_voltage = rp2040.read_vbat().unwrap();
+        println!("Battery voltage: {} V", battery_voltage);
 
         #[cfg(feature = "with-wifi")]
         if let Some(wifi_driver) = maybe_wifi_driver.as_ref() {

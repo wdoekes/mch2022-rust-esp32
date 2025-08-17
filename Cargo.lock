@@ -909,6 +909,7 @@ dependencies = [
  "anyhow",
  "embuild",
  "esp-idf-svc",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

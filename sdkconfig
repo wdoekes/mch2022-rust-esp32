@@ -28,3 +28,6 @@ CONFIG_SPIRAM_SPEED_80M=y
 # "The option to select 80MHz will only be visible if the flash SPI
 # speed is also 80MHz."
 CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+
+# We need more stack for WiFi+mbedTLS
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192

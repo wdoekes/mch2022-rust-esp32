@@ -26,6 +26,7 @@ const BUILD_VERSION: &str = git_version::git_version!();
 mod wifi_config {
     pub const DEFAULT_WIFI_SSID: &str = env!("DEFAULT_WIFI_SSID");
     pub const DEFAULT_WIFI_PASSWORD: &str = env!("DEFAULT_WIFI_PASSWORD");
+    pub const HUD_URL: &str = env!("HUD_URL");
 }
 
 
@@ -122,7 +123,11 @@ fn main() {
                     if !have_wifi {
                         have_wifi = true;
                         println!("IP info: {:?}", wifi_driver.sta_netif().get_ip_info().unwrap());
-                        s_display = format!("{}\nWIFI:{}", s, wifi_driver.sta_netif().get_ip_info().unwrap().ip);
+                        if let Some(body) = wifi::http_get(wifi_config::HUD_URL) {
+                            s_display = format!("{}\nWIFI:{}\nBODY:{}", s, wifi_driver.sta_netif().get_ip_info().unwrap().ip, body);
+                        } else {
+                            s_display = format!("{}\nWIFI:{}", s, wifi_driver.sta_netif().get_ip_info().unwrap().ip);
+                        }
                     }
                 },
                 Ok(false) => {

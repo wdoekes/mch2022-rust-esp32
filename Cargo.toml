@@ -23,6 +23,7 @@ log = "0.4"
 esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
 
 anyhow = "1"
+embedded-svc = "0"
 git-version = "0.3"
 heapless = "0"
 

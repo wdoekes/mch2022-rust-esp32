@@ -1,0 +1,20 @@
+[package]
+name = "hellomch-mchcoproc"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
+
+anyhow = "1"
+
+[profile.release]
+opt-level = 's'
+
+[profile.dev]
+# Rust debug is too slow.
+# For debug builds always builds with some optimization
+opt-level = "s"
+
+[build-dependencies]
+embuild = "0.33"

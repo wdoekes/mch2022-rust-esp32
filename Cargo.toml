@@ -16,6 +16,7 @@ version-from-env = []
 with-wifi = []
 
 [dependencies]
+hellomch-mchcoproc = { path = "lib/mchcoproc" }
 hellomch-mchdisplay = { path = "lib/mchdisplay", features = ["with-framebuffer", "with-psram"] }
 
 log = "0.4"

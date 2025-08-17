@@ -1,10 +1,14 @@
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use esp_idf_svc::hal::delay::FreeRtos;
 use esp_idf_svc::hal::gpio::PinDriver;
+use esp_idf_svc::hal::i2c::{I2cDriver, I2cConfig};
 use esp_idf_svc::hal::prelude::Peripherals;
+use esp_idf_svc::hal::units::Hertz;
 
 use hellomch_mchdisplay::mchdisplay::{Display, Rgb565, RgbColor};
+use hellomch_mchcoproc::mchcoproc::Rp2040;
 
 use hellomch::util;
 
@@ -24,6 +28,8 @@ mod wifi_config {
     pub const DEFAULT_WIFI_PASSWORD: &str = env!("DEFAULT_WIFI_PASSWORD");
 }
 
+
+pub type SharedI2c = Arc<Mutex<I2cDriver<'static>>>;
 
 fn main() {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -56,7 +62,19 @@ fn main() {
     log::info!("MCH Badge Display inited");
     util::show_memory_status();
 
-    let s = format!("Hello MCH build {}", BUILD_TIMESTAMP);
+    let single_i2c = I2cDriver::new(
+        peripherals.i2c0,
+        peripherals.pins.gpio22,     // GPIO_I2C_SDA
+        peripherals.pins.gpio21,     // GPIO_I2C_SCL
+        &I2cConfig::new().baudrate(Hertz(400_000)),
+    ).unwrap();
+    let shared_i2c: SharedI2c = Arc::new(Mutex::new(single_i2c));
+    let mut rp2040 = Rp2040::new(shared_i2c.clone());
+
+    let rp2040_fw = rp2040.get_firmware_version().unwrap();
+    log::info!("RP2040 firmware version: 0x{:02X}", rp2040_fw);
+
+    let s = format!("Hello MCH!\nV:{}\nT:{}\nCO:{:02X}", BUILD_VERSION, BUILD_TIMESTAMP, rp2040_fw);
     display.clear(Rgb565::WHITE);
     display.println(s.as_str(), 0, 0);
     display.flush();
@@ -81,6 +99,7 @@ fn main() {
     #[cfg(feature = "with-wifi")]
     let mut have_wifi = false;
     let mut n = 0_i32;
+    let mut s_display = s.clone();
     loop {
         FreeRtos::delay_ms(2000);
 
@@ -91,7 +110,7 @@ fn main() {
             display.clear(Rgb565::WHITE);
         }
         n = (n + 10) % 60;
-        display.println(s.as_str(), n, n);
+        display.println(s_display.as_str(), n, n);
         display.flush();
         log::info!("Update took {} ms", start.elapsed().as_millis());
         util::show_memory_status();
@@ -103,18 +122,21 @@ fn main() {
                     if !have_wifi {
                         have_wifi = true;
                         println!("IP info: {:?}", wifi_driver.sta_netif().get_ip_info().unwrap());
+                        s_display = format!("{}\nWIFI:{}", s, wifi_driver.sta_netif().get_ip_info().unwrap().ip);
                     }
                 },
                 Ok(false) => {
                     if have_wifi {
                         have_wifi = false;
                         println!("Lost wifi :(");
+                        s_display = format!("{}\nWIFI:false", s);
                     }
                 },
                 Err(err) => {
                     if have_wifi {
                         have_wifi = false;
                         println!("Lost wifi because: {:?}", err);
+                        s_display = format!("{}\nWIFI:error", s);
                     }
                 },
             }

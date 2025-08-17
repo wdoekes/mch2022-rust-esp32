@@ -892,8 +892,18 @@ dependencies = [
  "esp-idf-svc",
  "git-version",
  "heapless",
+ "hellomch-mchcoproc",
  "hellomch-mchdisplay",
  "log",
+]
+
+[[package]]
+name = "hellomch-mchcoproc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "embuild",
+ "esp-idf-svc",
 ]
 
 [[package]]

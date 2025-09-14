@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::sync::{Arc, Mutex, mpsc};
+use std::time::{Duration, Instant};
 
 use esp_idf_svc::hal::delay::FreeRtos;
 use esp_idf_svc::hal::gpio::PinDriver;
@@ -8,7 +8,7 @@ use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::units::Hertz;
 
 use hellomch_mchdisplay::mchdisplay::{Display, Rgb565, RgbColor};
-use hellomch_mchcoproc::mchcoproc::Rp2040;
+use hellomch_mchcoproc::mchcoproc::{Rp2040, Rp2040Input, Rp2040InputEvent};
 
 use hellomch::util;
 
@@ -29,8 +29,19 @@ mod wifi_config {
     pub const HUD_URL: &str = env!("HUD_URL");
 }
 
-
 pub type SharedI2c = Arc<Mutex<I2cDriver<'static>>>;
+
+pub trait WithMut<T> {
+    fn with_mut<R>(&self, f: impl FnOnce(&mut T) -> R) -> R;
+}
+
+impl<T> WithMut<T> for Arc<Mutex<T>> {
+    fn with_mut<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+        let mut rp = self.lock().unwrap();
+        f(&mut *rp)
+    }
+}
+
 
 fn main() {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -70,12 +81,14 @@ fn main() {
         &I2cConfig::new().baudrate(Hertz(400_000)),
     ).unwrap();
     let shared_i2c: SharedI2c = Arc::new(Mutex::new(single_i2c));
-    let mut rp2040 = Rp2040::new(shared_i2c.clone());
+    let (rp2040_event_sender, rp2040_event_receiver) = mpsc::channel::<Rp2040InputEvent>();
+    let rp2040 = Rp2040::new(shared_i2c.clone())
+        .setup_interrupt(peripherals.pins.gpio34, rp2040_event_sender).unwrap();
 
-    let rp2040_fw = rp2040.get_firmware_version().unwrap();
+    let rp2040_fw = rp2040.with_mut(|rp| rp.get_firmware_version().unwrap());
     log::info!("RP2040 firmware version: 0x{:02X}", rp2040_fw);
 
-    let battery_voltage = rp2040.read_vbat().unwrap();
+    let battery_voltage = rp2040.with_mut(|rp| rp.read_vbat().unwrap());
     let battery_percent: u8 = (((battery_voltage - 3.6) * 100.0) / (4.1 - 3.6)).clamp(0.0, 100.0) as u8;
 
     let s = format!("Hello MCH!\nV:{}\nT:{}\nCO:0x{:02X}\nBAT:{}%", BUILD_VERSION, BUILD_TIMESTAMP, rp2040_fw, battery_percent);
@@ -104,8 +117,44 @@ fn main() {
     let mut have_wifi = false;
     let mut n = 0_i32;
     let mut s_display = s.clone();
+    let mut s_but = "".to_string();
+    let mut ir_toggle: bool = false;
+
     loop {
-        FreeRtos::delay_ms(2000);
+        // Handle all buttons; the timeout here servers as an alternative to FreeRtos::delay_ms(500).
+        match rp2040_event_receiver.recv_timeout(Duration::from_millis(1000)) {
+            Ok(event) => {
+                if !event.is_released {
+                    s_but = format!("BUT: {:?}\n", event.input);
+                    match event.input {
+                        Rp2040Input::ButtonAccept => {
+                            // takes 24ms (in the background)
+                            rp2040.with_mut(|rp| rp.write_ir_trigger_rc5(ir_toggle, 0x10, 13)); // MUTE
+                            ir_toggle = !ir_toggle;
+                        },
+                        Rp2040Input::ButtonBack => {},
+                        Rp2040Input::JoystickDown => {
+                            rp2040.with_mut(|rp| rp.write_ir_trigger_rc5(ir_toggle, 0x10, 17)); // VOL-
+                            ir_toggle = !ir_toggle;
+                        },
+                        Rp2040Input::JoystickUp => {
+                            rp2040.with_mut(|rp| rp.write_ir_trigger_rc5(ir_toggle, 0x10, 16)); // VOL+
+                            ir_toggle = !ir_toggle;
+                        }
+                        Rp2040Input::JoystickLeft => {},
+                        Rp2040Input::JoystickRight => {},
+                        _ => {}, // FIXME
+                    }
+                }
+                continue; // NOTE!
+            },
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+            },
+            Err(err) => {
+                log::error!("err? {}", err);
+                break; // 15:50:46.489937: E (6032) hellomch: err? channel is empty and sending half is closed
+            },
+        }
 
         let start = Instant::now();
         if n == 0 {
@@ -114,13 +163,13 @@ fn main() {
             display.clear(Rgb565::WHITE);
         }
         n = (n + 10) % 60;
-        display.println(s_display.as_str(), n, n);
+        display.println(format!("{}\n{}", s_display, s_but).as_str(), n, n);
         display.flush();
         log::info!("Update took {} ms", start.elapsed().as_millis());
         util::show_memory_status();
 
         // TEMP: print battery status here
-        let battery_voltage = rp2040.read_vbat().unwrap();
+        let battery_voltage = rp2040.with_mut(|rp| rp.read_vbat().unwrap());
         println!("Battery voltage: {} V", battery_voltage);
 
         #[cfg(feature = "with-wifi")]
@@ -153,5 +202,7 @@ fn main() {
                 },
             }
         }
+
+        s_but = "".to_string();
     }
 }

@@ -3,10 +3,16 @@ name = "hellomch-mchcoproc"
 edition = "2021"
 version = "0.1.0"
 
+[features]
+default = []
+unused-force-pullup = []
+
 [dependencies]
+log = "0.4"
 esp-idf-svc = { version = "0", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
 
 anyhow = "1"
+strum = { version = "0", features = ["derive"] }
 thiserror = "1"
 
 [profile.release]

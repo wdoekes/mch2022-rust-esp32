@@ -116,6 +116,12 @@ This should get you back to a clean state:
 
 *(Change path as appropriate needed.)*
 
+Note: during first flash, you might get the wrong partion flashed (I
+think). It could flash ``ota_0`` while you're actively running
+``ota_1``. Not sure how to switch between these yet (it's in the
+``otadata`` partition). In my case I had the badge do an OTA update and
+after that, a flash+restart worked.
+
 
 -------------------
 Restoring the badge

@@ -11,12 +11,11 @@ harness = false # do not use the built in cargo test harness -> resolve rust-ana
 
 [features]
 default = []
-experimental = ["esp-idf-svc/experimental"]
 version-from-env = []
 with-wifi = []
 
 [dependencies]
-hellomch-mchcoproc = { path = "lib/mchcoproc" }
+hellomch-mchcoproc = { path = "lib/mchcoproc", features = ["unused-force-pullup"] }
 hellomch-mchdisplay = { path = "lib/mchdisplay", features = ["with-framebuffer", "with-psram"] }
 
 log = "0.4"
